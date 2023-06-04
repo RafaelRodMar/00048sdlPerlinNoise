@@ -1,0 +1,10 @@
+{
+    "fnt": {
+        "font": "sansation.ttf"
+    },
+    "img": {
+        "MarchingSquares20x20": "MarchingSquares20x20.png",
+	"MarchingSquares2Terrain20x20" : "MarchingSquares2Terrain20x20.png",
+	"MarchingSquares2TerrainRect20x20" : "MarchingSquares2TerrainRect20x20.png"
+    }
+}
