@@ -196,11 +196,13 @@ bool Game::init(const char* title, int xpos, int ypos, int width,
 	nOutputSize = Game::Instance()->getGameWidth();
 	fNoiseSeed1D = new float[nOutputSize];
 	fPerlinNoise1D = new float[nOutputSize];
+	//init with random values
 	for (int i = 0; i < nOutputSize; i++) fNoiseSeed1D[i] = (float)rand() / (float)RAND_MAX;
 
 	//2D
 	fNoiseSeed2D = new float[nOutputWidth * nOutputHeight];
 	fPerlinNoise2D = new float[nOutputWidth * nOutputHeight];
+	//init with random values
 	for (int i = 0; i < nOutputWidth * nOutputHeight; i++) fNoiseSeed2D[i] = (float)rand() / (float)RAND_MAX;
 
 	return true;
@@ -289,13 +291,22 @@ void Game::handleEvents()
 		//1D
 		if (nMode == 1)
 		{
+			bool calculate = false;
 			//noise between 0 and +1
 			if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_Z))
+			{
 				for (int i = 0; i < nOutputSize; i++) fNoiseSeed1D[i] = (float)rand() / (float)RAND_MAX;
+				calculate = true;
+			}
 
 			//noise between -1 and +1
 			if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_X))
+			{
 				for (int i = 0; i < nOutputSize; i++) fNoiseSeed1D[i] = 2.0f * ((float)rand() / (float)RAND_MAX) - 1.0f;
+				calculate = true;
+			}
+
+			if(calculate == true) PerlinNoise1D(nOutputSize, fNoiseSeed1D, nOctaveCount, fScalingBias, fPerlinNoise1D);
 		}
 
 		//2D
@@ -303,7 +314,10 @@ void Game::handleEvents()
 		{
 			//noise between 0 and +1
 			if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_Z))
+			{
 				for (int i = 0; i < nOutputWidth * nOutputHeight; i++) fNoiseSeed2D[i] = (float)rand() / (float)RAND_MAX;
+				PerlinNoise2D(nOutputWidth, nOutputHeight, fNoiseSeed2D, nOctaveCount, fScalingBias, fPerlinNoise2D);
+			}
 		}
 
 		//2D with colors
@@ -311,7 +325,10 @@ void Game::handleEvents()
 		{
 			//noise between 0 and +1
 			if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_Z))
+			{
 				for (int i = 0; i < nOutputWidth * nOutputHeight; i++) fNoiseSeed2D[i] = (float)rand() / (float)RAND_MAX;
+				PerlinNoise2D(nOutputWidth, nOutputHeight, fNoiseSeed2D, nOctaveCount, fScalingBias, fPerlinNoise2D);
+			}
 		}
 	}
 
