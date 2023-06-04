@@ -183,8 +183,7 @@ bool Game::init(const char* title, int xpos, int ypos, int width,
 	Mix_Volume(-1, 16); //adjust sound/music volume for all channels
 
 	state = GAME;
-	subState = LINES;
-
+	
 	mapa = new Board(640,480,20,20);
 	mapa->fillBoardWithPoints();
 
@@ -214,11 +213,11 @@ void Game::render()
 	SDL_RenderClear(m_pRenderer); // clear the renderer to the draw color
 
 	//title and menu
-	AssetsManager::Instance()->Text("Marching Squares", "font", 640, 0, SDL_Color({ 0,0,0,255 }), Game::Instance()->getRenderer());
-	AssetsManager::Instance()->Text("1-With lines", "font", 650, 30, SDL_Color({ 0,0,0,255 }), Game::Instance()->getRenderer());
-	AssetsManager::Instance()->Text("2-With 2 tiles", "font", 650, 60, SDL_Color({ 0,0,0,255 }), Game::Instance()->getRenderer());
-	AssetsManager::Instance()->Text("3-With 2 terrains", "font", 650, 90, SDL_Color({ 0,0,0,255 }), Game::Instance()->getRenderer());
-	AssetsManager::Instance()->Text("4-With 2 terrains Rect", "font", 650, 120, SDL_Color({ 0,0,0,255 }), Game::Instance()->getRenderer());
+	AssetsManager::Instance()->Text("Perlin Noise", "font", 640, 0, SDL_Color({ 0,0,0,255 }), Game::Instance()->getRenderer());
+	AssetsManager::Instance()->Text("Mode (1,2,3): " + std::to_string(nMode), "font", 650, 30, SDL_Color({ 0,0,0,255 }), Game::Instance()->getRenderer());
+	AssetsManager::Instance()->Text("Octaves (space) : " + std::to_string(nOctaveCount), "font", 650, 60, SDL_Color({ 0,0,0,255 }), Game::Instance()->getRenderer());
+	AssetsManager::Instance()->Text("Scaling (q,a): " + std::to_string(fScalingBias), "font", 650, 90, SDL_Color({ 0,0,0,255 }), Game::Instance()->getRenderer());
+	AssetsManager::Instance()->Text("Noise between 0 and 1 or -1 and 1 (z)", "font", 650, 90, SDL_Color({ 0,0,0,255 }), Game::Instance()->getRenderer());
 
 	//draw a 640x480 rectangle
 	SDL_SetRenderDrawColor(Game::Instance()->getRenderer(), 0, 0, 0, 255); //black
@@ -231,10 +230,35 @@ void Game::render()
 
 		if (state == GAME)
 		{
-			if(subState == LINES) mapa->showMarchingSquaresLines();
-			if(subState == TILES) mapa->showMarchingSquaresTiles();
-			if(subState == TERRAIN) mapa->showMarchingSquaresTerrain();
-			if(subState == TERRAINRECT) mapa->showMarchingSquaresTerrainRect();
+			if (nMode == 1)
+			{
+				for (int x = 0; x < nOutputSize; x++)
+				{
+					int y = -(fPerlinNoise1D[x] * (float)Game::Instance()->getGameHeight() / 2.0f) + (float)Game::Instance()->getGameHeight() / 2.0f;
+					if (y < Game::Instance()->getGameHeight() / 2)
+					{
+						SDL_SetRenderDrawColor(m_pRenderer, 0, 255, 0, 255); //green
+						for (int f = y; f < Game::Instance()->getGameHeight() / 2; f++)
+							SDL_RenderDrawPoint(m_pRenderer, x, f);
+					}
+					else
+					{
+						SDL_SetRenderDrawColor(m_pRenderer, 255, 0, 0, 255); //red
+						for (int f = Game::Instance()->getGameHeight() / 2; f <= y; f++)
+							SDL_RenderDrawPoint(m_pRenderer, x, f);
+					}
+				}
+			}
+
+			if (nMode == 2)
+			{
+
+			}
+
+			if (nMode == 3)
+			{
+
+			}
 		}
 
 		if (state == END_GAME)
@@ -265,6 +289,9 @@ void Game::clean()
 void Game::handleEvents()
 {
 	InputHandler::Instance()->update();
+	static int delay = 500;
+	static int keyDelay = 100;
+	if (keyDelay > 0) keyDelay--;
 
 	//HandleKeys
 	if (state == MENU)
@@ -273,17 +300,12 @@ void Game::handleEvents()
 
 	if (state == GAME)
 	{
-		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_1)) subState = LINES;
-		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_2)) subState = TILES;
-		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_3)) subState = TERRAIN;
-		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_4)) subState = TERRAINRECT;
-
-		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_SPACE)) nOctaveCount++;
-		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_1)) nMode = 1;
-		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_2)) nMode = 2;
-		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_3)) nMode = 3;
-		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_Q)) fScalingBias += 0.2f;
-		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_A)) fScalingBias -= 0.2f;
+		if (keyDelay == 0 && InputHandler::Instance()->isKeyDown(SDL_SCANCODE_SPACE)) nOctaveCount++;
+		if (keyDelay == 0 && InputHandler::Instance()->isKeyDown(SDL_SCANCODE_1)) nMode = 1;
+		if (keyDelay == 0 && InputHandler::Instance()->isKeyDown(SDL_SCANCODE_2)) nMode = 2;
+		if (keyDelay == 0 && InputHandler::Instance()->isKeyDown(SDL_SCANCODE_3)) nMode = 3;
+		if (keyDelay == 0 && InputHandler::Instance()->isKeyDown(SDL_SCANCODE_Q)) fScalingBias += 0.2f;
+		if (keyDelay == 0 && InputHandler::Instance()->isKeyDown(SDL_SCANCODE_A)) fScalingBias -= 0.2f;
 
 		if (fScalingBias < 0.2f) fScalingBias = 0.2f;
 		if (nOctaveCount == 9) nOctaveCount = 1;
@@ -293,14 +315,14 @@ void Game::handleEvents()
 		{
 			bool calculate = false;
 			//noise between 0 and +1
-			if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_Z))
+			if (keyDelay == 0 && InputHandler::Instance()->isKeyDown(SDL_SCANCODE_Z))
 			{
 				for (int i = 0; i < nOutputSize; i++) fNoiseSeed1D[i] = (float)rand() / (float)RAND_MAX;
 				calculate = true;
 			}
 
 			//noise between -1 and +1
-			if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_X))
+			if (keyDelay == 0 && InputHandler::Instance()->isKeyDown(SDL_SCANCODE_X))
 			{
 				for (int i = 0; i < nOutputSize; i++) fNoiseSeed1D[i] = 2.0f * ((float)rand() / (float)RAND_MAX) - 1.0f;
 				calculate = true;
@@ -313,7 +335,7 @@ void Game::handleEvents()
 		if (nMode == 2)
 		{
 			//noise between 0 and +1
-			if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_Z))
+			if (keyDelay == 0 && InputHandler::Instance()->isKeyDown(SDL_SCANCODE_Z))
 			{
 				for (int i = 0; i < nOutputWidth * nOutputHeight; i++) fNoiseSeed2D[i] = (float)rand() / (float)RAND_MAX;
 				PerlinNoise2D(nOutputWidth, nOutputHeight, fNoiseSeed2D, nOctaveCount, fScalingBias, fPerlinNoise2D);
@@ -324,12 +346,14 @@ void Game::handleEvents()
 		if (nMode == 3)
 		{
 			//noise between 0 and +1
-			if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_Z))
+			if (keyDelay == 0 && InputHandler::Instance()->isKeyDown(SDL_SCANCODE_Z))
 			{
 				for (int i = 0; i < nOutputWidth * nOutputHeight; i++) fNoiseSeed2D[i] = (float)rand() / (float)RAND_MAX;
 				PerlinNoise2D(nOutputWidth, nOutputHeight, fNoiseSeed2D, nOctaveCount, fScalingBias, fPerlinNoise2D);
 			}
 		}
+
+		if (keyDelay == 0) keyDelay = delay;
 	}
 
 	if (state == END_GAME)
