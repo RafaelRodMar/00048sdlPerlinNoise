@@ -39,6 +39,68 @@ public:
 //la clase juego:
 Game* Game::s_pInstance = 0;
 
+void Game::PerlinNoise1D(int nCount, float * fSeed, int nOctaves, float fBias, float * fOutput)
+{
+	for (int x = 0; x < nCount; x++)
+	{
+		float fNoise = 0.0f;
+		float fScaleAcc = 0.0f;
+		float fScale = 1.0f;
+
+		for (int o = 0; o < nOctaves; o++)
+		{
+			int nPitch = nCount >> o;
+			int nSample1 = (x / nPitch) * nPitch;
+			int nSample2 = (nSample1 + nPitch) % nCount;
+
+			float fBlend = (float)(x - nSample1) / (float)nPitch;
+
+			float fSample = (1.0f - fBlend) * fSeed[nSample1] + fBlend * fSeed[nSample2];
+
+			fScaleAcc += fScale;
+			fNoise += fSample * fScale;
+			fScale = fScale / fBias;
+		}
+
+		// Scale to seed range
+		fOutput[x] = fNoise / fScaleAcc;
+	}
+}
+
+void Game::PerlinNoise2D(int nWidth, int nHeight, float * fSeed, int nOctaves, float fBias, float * fOutput)
+{
+	for (int x = 0; x < nWidth; x++)
+		for (int y = 0; y < nHeight; y++)
+		{
+			float fNoise = 0.0f;
+			float fScaleAcc = 0.0f;
+			float fScale = 1.0f;
+
+			for (int o = 0; o < nOctaves; o++)
+			{
+				int nPitch = nWidth >> o;
+				int nSampleX1 = (x / nPitch) * nPitch;
+				int nSampleY1 = (y / nPitch) * nPitch;
+
+				int nSampleX2 = (nSampleX1 + nPitch) % nWidth;
+				int nSampleY2 = (nSampleY1 + nPitch) % nWidth;
+
+				float fBlendX = (float)(x - nSampleX1) / (float)nPitch;
+				float fBlendY = (float)(y - nSampleY1) / (float)nPitch;
+
+				float fSampleT = (1.0f - fBlendX) * fSeed[nSampleY1 * nWidth + nSampleX1] + fBlendX * fSeed[nSampleY1 * nWidth + nSampleX2];
+				float fSampleB = (1.0f - fBlendX) * fSeed[nSampleY2 * nWidth + nSampleX1] + fBlendX * fSeed[nSampleY2 * nWidth + nSampleX2];
+
+				fScaleAcc += fScale;
+				fNoise += (fBlendY * (fSampleB - fSampleT) + fSampleT) * fScale;
+				fScale = fScale / fBias;
+			}
+
+			// Scale to seed range
+			fOutput[y * nWidth + x] = fNoise / fScaleAcc;
+		}
+}
+
 Game::Game()
 {
 	m_pRenderer = NULL;
@@ -117,30 +179,29 @@ bool Game::init(const char* title, int xpos, int ypos, int width,
 	InputHandler::Instance()->initialiseJoysticks();
 
 	//load images, sounds, music and fonts
-	//AssetsManager::Instance()->loadAssets();
 	AssetsManager::Instance()->loadAssetsJson(); //ahora con formato json
 	Mix_Volume(-1, 16); //adjust sound/music volume for all channels
 
-	//ReadHiScores();
-	
 	state = GAME;
 	subState = LINES;
 
-	//generate the map dots (more 1 than 0)
-	/*for (int i = 0; i < (640 / cellSize) + 1; i++) {
-		for (int j = 0; j < (480 / cellSize) + 1; j++) {
-			if (rnd.getRndInt(0, 100) < 80)
-				board[i][j] = 1;
-			else
-				board[i][j] = 0;
-		}
-	}*/
-	
 	mapa = new Board(640,480,20,20);
 	mapa->fillBoardWithPoints();
-	//cout << "tamaño del mapa: " << mapa->board.size() << "x" << mapa->board[0].size() << endl;
 
-	//SDL_RenderSetScale(Game::Instance()->getRenderer(), 2, 2);
+	//initialize perlin noise variables
+	nOutputWidth = Game::Instance()->getGameWidth();
+	nOutputHeight = Game::Instance()->getGameHeight();
+
+	//1D
+	nOutputSize = Game::Instance()->getGameWidth();
+	fNoiseSeed1D = new float[nOutputSize];
+	fPerlinNoise1D = new float[nOutputSize];
+	for (int i = 0; i < nOutputSize; i++) fNoiseSeed1D[i] = (float)rand() / (float)RAND_MAX;
+
+	//2D
+	fNoiseSeed2D = new float[nOutputWidth * nOutputHeight];
+	fPerlinNoise2D = new float[nOutputWidth * nOutputHeight];
+	for (int i = 0; i < nOutputWidth * nOutputHeight; i++) fNoiseSeed2D[i] = (float)rand() / (float)RAND_MAX;
 
 	return true;
 }
@@ -173,318 +234,6 @@ void Game::render()
 			if(subState == TERRAIN) mapa->showMarchingSquaresTerrain();
 			if(subState == TERRAINRECT) mapa->showMarchingSquaresTerrainRect();
 		}
-
-		//if (state == MENU)
-		//{
-		//	if (subState == LINES)
-		//	{
-		//		//draw the dots
-		//		for (int i = 0; i < (640 / cellSize) + 1; i++) {
-		//			for (int j = 0; j < (480 / cellSize) + 1; j++) {
-		//				if (board[i][j] == 0)
-		//					SDL_SetRenderDrawColor(Game::Instance()->getRenderer(), 0, 0, 0, 255); //black
-		//				else
-		//					SDL_SetRenderDrawColor(Game::Instance()->getRenderer(), 255, 0, 0, 255); //red
-
-		//				SDL_RenderDrawPoint(Game::Instance()->getRenderer(), i * 20, j * 20);
-		//			}
-		//		}
-
-		//		//draw the lines
-		//		SDL_SetRenderDrawColor(Game::Instance()->getRenderer(), 0, 0, 0, 255); //black
-		//		for (int i = 0; i < (640 / cellSize); i++) {
-		//			for (int j = 0; j < (480 / cellSize); j++) {
-		//				int x = i * cellSize;
-		//				int y = j * cellSize;
-		//				Vector2D a = Vector2D(x + cellSize * 0.5, y);
-		//				Vector2D b = Vector2D(x + cellSize, y + cellSize * 0.5);
-		//				Vector2D c = Vector2D(x + cellSize * 0.5, y + cellSize);
-		//				Vector2D d = Vector2D(x, y + cellSize * 0.5);
-		//				int state = board[i][j] * 8 + board[i + 1][j] * 4 + board[i + 1][j + 1] * 2 + board[i][j + 1];
-
-		//				switch (state) {
-		//				case 0:
-		//					//do nothing
-		//					break;
-		//				case 1:
-		//					SDL_RenderDrawLine(Game::Instance()->getRenderer(), c.m_x, c.m_y, d.m_x, d.m_y);
-		//					break;
-		//				case 2:
-		//					SDL_RenderDrawLine(Game::Instance()->getRenderer(), b.m_x, b.m_y, c.m_x, c.m_y);
-		//					break;
-		//				case 3:
-		//					SDL_RenderDrawLine(Game::Instance()->getRenderer(), b.m_x, b.m_y, d.m_x, d.m_y);
-		//					break;
-		//				case 4:
-		//					SDL_RenderDrawLine(Game::Instance()->getRenderer(), a.m_x, a.m_y, b.m_x, b.m_y);
-		//					break;
-		//				case 5:
-		//					SDL_RenderDrawLine(Game::Instance()->getRenderer(), a.m_x, a.m_y, d.m_x, d.m_y);
-		//					SDL_RenderDrawLine(Game::Instance()->getRenderer(), b.m_x, b.m_y, c.m_x, c.m_y);
-		//					break;
-		//				case 6:
-		//					SDL_RenderDrawLine(Game::Instance()->getRenderer(), a.m_x, a.m_y, c.m_x, c.m_y);
-		//					break;
-		//				case 7:
-		//					SDL_RenderDrawLine(Game::Instance()->getRenderer(), a.m_x, a.m_y, d.m_x, d.m_y);
-		//					break;
-		//				case 8:
-		//					SDL_RenderDrawLine(Game::Instance()->getRenderer(), a.m_x, a.m_y, d.m_x, d.m_y);
-		//					break;
-		//				case 9:
-		//					SDL_RenderDrawLine(Game::Instance()->getRenderer(), a.m_x, a.m_y, c.m_x, c.m_y);
-		//					break;
-		//				case 10:
-		//					SDL_RenderDrawLine(Game::Instance()->getRenderer(), a.m_x, a.m_y, b.m_x, b.m_y);
-		//					SDL_RenderDrawLine(Game::Instance()->getRenderer(), c.m_x, c.m_y, d.m_x, d.m_y);
-		//					break;
-		//				case 11:
-		//					SDL_RenderDrawLine(Game::Instance()->getRenderer(), a.m_x, a.m_y, b.m_x, b.m_y);
-		//					break;
-		//				case 12:
-		//					SDL_RenderDrawLine(Game::Instance()->getRenderer(), b.m_x, b.m_y, d.m_x, d.m_y);
-		//					break;
-		//				case 13:
-		//					SDL_RenderDrawLine(Game::Instance()->getRenderer(), b.m_x, b.m_y, c.m_x, c.m_y);
-		//					break;
-		//				case 14:
-		//					SDL_RenderDrawLine(Game::Instance()->getRenderer(), c.m_x, c.m_y, d.m_x, d.m_y);
-		//					break;
-		//				case 15:
-		//					//do nothing
-		//					break;
-		//				default:
-		//					break;
-		//				}
-		//			}
-		//		}
-		//	}
-
-		//	if (subState == TILES)
-		//	{
-		//		/*AssetsManager::Instance()->draw("MarchingSquares20x20", 0, 0, 80, 80, Game::Instance()->getRenderer());
-		//		AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, 90, 0, 20, 20, 0, 0, Game::Instance()->getRenderer());
-		//		AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, 110, 0, 20, 20, 0, 1, Game::Instance()->getRenderer());
-		//		AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, 130, 0, 20, 20, 0, 2, Game::Instance()->getRenderer());
-		//		AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, 150, 0, 20, 20, 0, 3, Game::Instance()->getRenderer());*/
-
-		//		//draw the tiles
-		//		for (int i = 0; i < (640 / cellSize); i++) {
-		//			for (int j = 0; j < (480 / cellSize); j++) {
-		//				int x = i * cellSize;
-		//				int y = j * cellSize;
-		//				int state = board[i][j] * 8 + board[i + 1][j] * 4 + board[i + 1][j + 1] * 2 + board[i][j + 1];
-		//				//string str = to_string(state);
-		//				//AssetsManager::Instance()->Text(str, "font", x+5, y+5, SDL_Color({ 0,0,0,255 }), Game::Instance()->getRenderer());
-
-
-		//				switch (state) {
-		//				case 0:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, x, y, 20, 20, 0, 0, Game::Instance()->getRenderer());
-		//					break;
-		//				case 1:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, x, y, 20, 20, 0, 1, Game::Instance()->getRenderer());
-		//					break;
-		//				case 2:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, x, y, 20, 20, 0, 2, Game::Instance()->getRenderer());
-		//					break;
-		//				case 3:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, x, y, 20, 20, 0, 3, Game::Instance()->getRenderer());
-		//					break;
-		//				case 4:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, x, y, 20, 20, 1, 0, Game::Instance()->getRenderer());
-		//					break;
-		//				case 5:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, x, y, 20, 20, 1, 1, Game::Instance()->getRenderer());
-		//					break;
-		//				case 6:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, x, y, 20, 20, 1, 2, Game::Instance()->getRenderer());
-		//					break;
-		//				case 7:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, x, y, 20, 20, 1, 3, Game::Instance()->getRenderer());
-		//					break;
-		//				case 8:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, x, y, 20, 20, 2, 0, Game::Instance()->getRenderer());
-		//					break;
-		//				case 9:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, x, y, 20, 20, 2, 1, Game::Instance()->getRenderer());
-		//					break;
-		//				case 10:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, x, y, 20, 20, 2, 2, Game::Instance()->getRenderer());
-		//					break;
-		//				case 11:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, x, y, 20, 20, 2, 3, Game::Instance()->getRenderer());
-		//					break;
-		//				case 12:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, x, y, 20, 20, 3, 0, Game::Instance()->getRenderer());
-		//					break;
-		//				case 13:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, x, y, 20, 20, 3, 1, Game::Instance()->getRenderer());
-		//					break;
-		//				case 14:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, x, y, 20, 20, 3, 2, Game::Instance()->getRenderer());
-		//					break;
-		//				case 15:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, x, y, 20, 20, 3, 3, Game::Instance()->getRenderer());
-		//					break;
-		//				default:
-		//					break;
-		//				}
-		//			}
-		//		}
-		//	}
-
-		//	if (subState == TERRAIN)
-		//	{
-		//		/*AssetsManager::Instance()->draw("MarchingSquares20x20", 0, 0, 80, 80, Game::Instance()->getRenderer());
-		//		AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, 90, 0, 20, 20, 0, 0, Game::Instance()->getRenderer());
-		//		AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, 110, 0, 20, 20, 0, 1, Game::Instance()->getRenderer());
-		//		AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, 130, 0, 20, 20, 0, 2, Game::Instance()->getRenderer());
-		//		AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, 150, 0, 20, 20, 0, 3, Game::Instance()->getRenderer());*/
-
-		//		//draw the tiles
-		//		for (int i = 0; i < (640 / cellSize); i++) {
-		//			for (int j = 0; j < (480 / cellSize); j++) {
-		//				int x = i * cellSize;
-		//				int y = j * cellSize;
-		//				int state = board[i][j] * 8 + board[i + 1][j] * 4 + board[i + 1][j + 1] * 2 + board[i][j + 1];
-		//				//string str = to_string(state);
-		//				//AssetsManager::Instance()->Text(str, "font", x+5, y+5, SDL_Color({ 0,0,0,255 }), Game::Instance()->getRenderer());
-
-
-		//				switch (state) {
-		//				case 0:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2Terrain20x20", 0, 0, x, y, 20, 20, 0, 0, Game::Instance()->getRenderer());
-		//					break;
-		//				case 1:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2Terrain20x20", 0, 0, x, y, 20, 20, 0, 1, Game::Instance()->getRenderer());
-		//					break;
-		//				case 2:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2Terrain20x20", 0, 0, x, y, 20, 20, 0, 2, Game::Instance()->getRenderer());
-		//					break;
-		//				case 3:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2Terrain20x20", 0, 0, x, y, 20, 20, 0, 3, Game::Instance()->getRenderer());
-		//					break;
-		//				case 4:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2Terrain20x20", 0, 0, x, y, 20, 20, 1, 0, Game::Instance()->getRenderer());
-		//					break;
-		//				case 5:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2Terrain20x20", 0, 0, x, y, 20, 20, 1, 1, Game::Instance()->getRenderer());
-		//					break;
-		//				case 6:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2Terrain20x20", 0, 0, x, y, 20, 20, 1, 2, Game::Instance()->getRenderer());
-		//					break;
-		//				case 7:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2Terrain20x20", 0, 0, x, y, 20, 20, 1, 3, Game::Instance()->getRenderer());
-		//					break;
-		//				case 8:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2Terrain20x20", 0, 0, x, y, 20, 20, 2, 0, Game::Instance()->getRenderer());
-		//					break;
-		//				case 9:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2Terrain20x20", 0, 0, x, y, 20, 20, 2, 1, Game::Instance()->getRenderer());
-		//					break;
-		//				case 10:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2Terrain20x20", 0, 0, x, y, 20, 20, 2, 2, Game::Instance()->getRenderer());
-		//					break;
-		//				case 11:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2Terrain20x20", 0, 0, x, y, 20, 20, 2, 3, Game::Instance()->getRenderer());
-		//					break;
-		//				case 12:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2Terrain20x20", 0, 0, x, y, 20, 20, 3, 0, Game::Instance()->getRenderer());
-		//					break;
-		//				case 13:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2Terrain20x20", 0, 0, x, y, 20, 20, 3, 1, Game::Instance()->getRenderer());
-		//					break;
-		//				case 14:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2Terrain20x20", 0, 0, x, y, 20, 20, 3, 2, Game::Instance()->getRenderer());
-		//					break;
-		//				case 15:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2Terrain20x20", 0, 0, x, y, 20, 20, 3, 3, Game::Instance()->getRenderer());
-		//					break;
-		//				default:
-		//					break;
-		//				}
-		//			}
-		//		}
-		//	}
-
-		//	if (subState == TERRAINRECT)
-		//	{
-		//		/*AssetsManager::Instance()->draw("MarchingSquares20x20", 0, 0, 80, 80, Game::Instance()->getRenderer());
-		//		AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, 90, 0, 20, 20, 0, 0, Game::Instance()->getRenderer());
-		//		AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, 110, 0, 20, 20, 0, 1, Game::Instance()->getRenderer());
-		//		AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, 130, 0, 20, 20, 0, 2, Game::Instance()->getRenderer());
-		//		AssetsManager::Instance()->drawTile("MarchingSquares20x20", 0, 0, 150, 0, 20, 20, 0, 3, Game::Instance()->getRenderer());*/
-
-		//		//draw the tiles
-		//		for (int i = 0; i < (640 / cellSize); i++) {
-		//			for (int j = 0; j < (480 / cellSize); j++) {
-		//				int x = i * cellSize;
-		//				int y = j * cellSize;
-		//				int state = board[i][j] * 8 + board[i + 1][j] * 4 + board[i + 1][j + 1] * 2 + board[i][j + 1];
-		//				//string str = to_string(state);
-		//				//AssetsManager::Instance()->Text(str, "font", x+5, y+5, SDL_Color({ 0,0,0,255 }), Game::Instance()->getRenderer());
-
-
-		//				switch (state) {
-		//				case 0:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2TerrainRect20x20", 0, 0, x, y, 20, 20, 0, 0, Game::Instance()->getRenderer());
-		//					break;
-		//				case 1:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2TerrainRect20x20", 0, 0, x, y, 20, 20, 0, 1, Game::Instance()->getRenderer());
-		//					break;
-		//				case 2:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2TerrainRect20x20", 0, 0, x, y, 20, 20, 0, 2, Game::Instance()->getRenderer());
-		//					break;
-		//				case 3:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2TerrainRect20x20", 0, 0, x, y, 20, 20, 0, 3, Game::Instance()->getRenderer());
-		//					break;
-		//				case 4:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2TerrainRect20x20", 0, 0, x, y, 20, 20, 1, 0, Game::Instance()->getRenderer());
-		//					break;
-		//				case 5:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2TerrainRect20x20", 0, 0, x, y, 20, 20, 1, 1, Game::Instance()->getRenderer());
-		//					break;
-		//				case 6:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2TerrainRect20x20", 0, 0, x, y, 20, 20, 1, 2, Game::Instance()->getRenderer());
-		//					break;
-		//				case 7:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2TerrainRect20x20", 0, 0, x, y, 20, 20, 1, 3, Game::Instance()->getRenderer());
-		//					break;
-		//				case 8:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2TerrainRect20x20", 0, 0, x, y, 20, 20, 2, 0, Game::Instance()->getRenderer());
-		//					break;
-		//				case 9:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2TerrainRect20x20", 0, 0, x, y, 20, 20, 2, 1, Game::Instance()->getRenderer());
-		//					break;
-		//				case 10:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2TerrainRect20x20", 0, 0, x, y, 20, 20, 2, 2, Game::Instance()->getRenderer());
-		//					break;
-		//				case 11:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2TerrainRect20x20", 0, 0, x, y, 20, 20, 2, 3, Game::Instance()->getRenderer());
-		//					break;
-		//				case 12:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2TerrainRect20x20", 0, 0, x, y, 20, 20, 3, 0, Game::Instance()->getRenderer());
-		//					break;
-		//				case 13:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2TerrainRect20x20", 0, 0, x, y, 20, 20, 3, 1, Game::Instance()->getRenderer());
-		//					break;
-		//				case 14:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2TerrainRect20x20", 0, 0, x, y, 20, 20, 3, 2, Game::Instance()->getRenderer());
-		//					break;
-		//				case 15:
-		//					AssetsManager::Instance()->drawTile("MarchingSquares2TerrainRect20x20", 0, 0, x, y, 20, 20, 3, 3, Game::Instance()->getRenderer());
-		//					break;
-		//				default:
-		//					break;
-		//				}
-		//			}
-		//		}
-		//	}
-
-		//	for (auto i : entities)
-		//		i->draw();
-		//}
 
 		if (state == END_GAME)
 		{
@@ -526,6 +275,44 @@ void Game::handleEvents()
 		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_2)) subState = TILES;
 		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_3)) subState = TERRAIN;
 		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_4)) subState = TERRAINRECT;
+
+		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_SPACE)) nOctaveCount++;
+		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_1)) nMode = 1;
+		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_2)) nMode = 2;
+		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_3)) nMode = 3;
+		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_Q)) fScalingBias += 0.2f;
+		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_A)) fScalingBias -= 0.2f;
+
+		if (fScalingBias < 0.2f) fScalingBias = 0.2f;
+		if (nOctaveCount == 9) nOctaveCount = 1;
+
+		//1D
+		if (nMode == 1)
+		{
+			//noise between 0 and +1
+			if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_Z))
+				for (int i = 0; i < nOutputSize; i++) fNoiseSeed1D[i] = (float)rand() / (float)RAND_MAX;
+
+			//noise between -1 and +1
+			if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_X))
+				for (int i = 0; i < nOutputSize; i++) fNoiseSeed1D[i] = 2.0f * ((float)rand() / (float)RAND_MAX) - 1.0f;
+		}
+
+		//2D
+		if (nMode == 2)
+		{
+			//noise between 0 and +1
+			if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_Z))
+				for (int i = 0; i < nOutputWidth * nOutputHeight; i++) fNoiseSeed2D[i] = (float)rand() / (float)RAND_MAX;
+		}
+
+		//2D with colors
+		if (nMode == 3)
+		{
+			//noise between 0 and +1
+			if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_Z))
+				for (int i = 0; i < nOutputWidth * nOutputHeight; i++) fNoiseSeed2D[i] = (float)rand() / (float)RAND_MAX;
+		}
 	}
 
 	if (state == END_GAME)
@@ -565,52 +352,6 @@ void Game::update()
 
 }
 
-void Game::UpdateHiScores(int newscore)
-{
-	//new score to the end
-	vhiscores.push_back(newscore);
-	//sort
-	sort(vhiscores.rbegin(), vhiscores.rend());
-	//remove the last
-	vhiscores.pop_back();
-}
-
-void Game::ReadHiScores()
-{
-	std::ifstream in("hiscores.dat");
-	if (in.good())
-	{
-		std::string str;
-		getline(in, str);
-		std::stringstream ss(str);
-		int n;
-		for (int i = 0; i < 5; i++)
-		{
-			ss >> n;
-			vhiscores.push_back(n);
-		}
-		in.close();
-	}
-	else
-	{
-		//if file does not exist fill with 5 scores
-		for (int i = 0; i < 5; i++)
-		{
-			vhiscores.push_back(0);
-		}
-	}
-}
-
-void Game::WriteHiScores()
-{
-	std::ofstream out("hiscores.dat");
-	for (int i = 0; i < 5; i++)
-	{
-		out << vhiscores[i] << " ";
-	}
-	out.close();
-}
-
 const int FPS = 60;
 const int DELAY_TIME = 1000.0f / FPS;
 
@@ -621,7 +362,7 @@ int main(int argc, char* args[])
 	Uint32 frameStart, frameTime;
 
 	std::cout << "game init attempt...\n";
-	if (Game::Instance()->init("Marching Squares", 100, 100, 900, 500,
+	if (Game::Instance()->init("Perlin Noise", 100, 100, 900, 600,
 		false))
 	{
 		std::cout << "game init success!\n";

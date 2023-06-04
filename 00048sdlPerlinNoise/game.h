@@ -41,10 +41,8 @@ public:
 
 	int getGameWidth() const { return m_gameWidth; }
 	int getGameHeight() const { return m_gameHeight; }
-
-	void UpdateHiScores(int newscore);
-	void ReadHiScores();
-	void WriteHiScores();
+	void PerlinNoise1D(int nCount, float *fSeed, int nOctaves, float fBias, float *fOutput);
+	void PerlinNoise2D(int nWidth, int nHeight, float *fSeed, int nOctaves, float fBias, float *fOutput);
 
 private:
 	Game();
@@ -53,15 +51,27 @@ private:
 	SDL_Renderer* m_pRenderer;
 
 	player *p;
-	car *c1, *c2, *c3, *c4;
 	int state = -1;
 	int subState = -1;
-	std::vector<int> vhiscores;
-	int lives, score;
 	int cellSize = 20;
-	//int board[33][25];
 
 	class Board *mapa;
+
+	//1D noise
+	float *fNoiseSeed1D = nullptr;
+	float *fPerlinNoise1D = nullptr;
+	int nOutputSize = 256;
+
+	//2D noise
+	int nOutputWidth = 256;
+	int nOutputHeight = 256;
+	float *fNoiseSeed2D = nullptr;
+	float *fPerlinNoise2D = nullptr;
+
+	//
+	int nOctaveCount = 1;
+	float fScalingBias = 2.0f;
+	int nMode = 1;
 
 	std::list<Entity*> entities;
 	bool isCollide(Entity *a, Entity *b);
