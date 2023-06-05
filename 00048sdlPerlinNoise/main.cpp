@@ -309,15 +309,30 @@ void Game::handleEvents()
 
 	if (state == GAME)
 	{
-		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_SPACE)) nOctaveCount++;
+		bool recalculate = false;
+		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_SPACE))
+		{
+			nOctaveCount++;
+			recalculate = true;
+		}
 		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_1)) nMode = 1;
 		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_2)) nMode = 2;
 		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_3)) nMode = 3;
-		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_Q)) fScalingBias += 0.2f;
-		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_A)) fScalingBias -= 0.2f;
+		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_Q))
+		{
+			fScalingBias += 0.2f;
+			recalculate = true;
+		}
+		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_A))
+		{
+			fScalingBias -= 0.2f;
+			recalculate = true;
+		}
 
 		if (fScalingBias < 0.2f) fScalingBias = 0.2f;
 		if (nOctaveCount == 9) nOctaveCount = 1;
+
+		if(recalculate) PerlinNoise1D(nOutputSize, fNoiseSeed1D, nOctaveCount, fScalingBias, fPerlinNoise1D);
 
 		//1D
 		if (nMode == 1)
