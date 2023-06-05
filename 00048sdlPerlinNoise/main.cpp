@@ -184,8 +184,8 @@ bool Game::init(const char* title, int xpos, int ypos, int width,
 
 	state = GAME;
 	
-	mapa = new Board(640,480,20,20);
-	mapa->fillBoardWithPoints();
+	/*mapa = new Board(640,480,20,20);
+	mapa->fillBoardWithPoints();*/
 
 	//initialize perlin noise variables
 	nOutputWidth = Game::Instance()->getGameWidth();
@@ -196,13 +196,21 @@ bool Game::init(const char* title, int xpos, int ypos, int width,
 	fNoiseSeed1D = new float[nOutputSize];
 	fPerlinNoise1D = new float[nOutputSize];
 	//init with random values
-	for (int i = 0; i < nOutputSize; i++) fNoiseSeed1D[i] = (float)rand() / (float)RAND_MAX;
+	for (int i = 0; i < nOutputSize; i++) fNoiseSeed1D[i] = (float)rand() / (float)RAND_MAX; //numbers between 0 and 1
+	/*auto len = sizeof(*fNoiseSeed1D) * nOutputSize / sizeof(fNoiseSeed1D[0]);
+	std::cout << "len : " << len << std::endl;*/
 
 	//2D
 	fNoiseSeed2D = new float[nOutputWidth * nOutputHeight];
 	fPerlinNoise2D = new float[nOutputWidth * nOutputHeight];
 	//init with random values
 	for (int i = 0; i < nOutputWidth * nOutputHeight; i++) fNoiseSeed2D[i] = (float)rand() / (float)RAND_MAX;
+
+	std::cout << "initial random values created" << std::endl;
+
+	//run them once with initial values for presentation while not key is pressed.
+	PerlinNoise1D(nOutputSize, fNoiseSeed1D, nOctaveCount, fScalingBias, fPerlinNoise1D);
+	PerlinNoise2D(nOutputWidth, nOutputHeight, fNoiseSeed2D, nOctaveCount, fScalingBias, fPerlinNoise2D);
 
 	return true;
 }
@@ -217,12 +225,12 @@ void Game::render()
 	AssetsManager::Instance()->Text("Mode (1,2,3): " + std::to_string(nMode), "font", 650, 30, SDL_Color({ 0,0,0,255 }), Game::Instance()->getRenderer());
 	AssetsManager::Instance()->Text("Octaves (space) : " + std::to_string(nOctaveCount), "font", 650, 60, SDL_Color({ 0,0,0,255 }), Game::Instance()->getRenderer());
 	AssetsManager::Instance()->Text("Scaling (q,a): " + std::to_string(fScalingBias), "font", 650, 90, SDL_Color({ 0,0,0,255 }), Game::Instance()->getRenderer());
-	AssetsManager::Instance()->Text("Noise between 0 and 1 or -1 and 1 (z)", "font", 650, 90, SDL_Color({ 0,0,0,255 }), Game::Instance()->getRenderer());
+	AssetsManager::Instance()->Text("Noise between 0 and 1 or -1 and 1 (z)", "font", 650, 120, SDL_Color({ 0,0,0,255 }), Game::Instance()->getRenderer());
 
 	//draw a 640x480 rectangle
-	SDL_SetRenderDrawColor(Game::Instance()->getRenderer(), 0, 0, 0, 255); //black
-	SDL_RenderDrawLine(Game::Instance()->getRenderer(), 0, 480, 640, 480);
-	SDL_RenderDrawLine(Game::Instance()->getRenderer(), 640, 0, 640, 480);
+	//SDL_SetRenderDrawColor(Game::Instance()->getRenderer(), 0, 0, 0, 255); //black
+	//SDL_RenderDrawLine(Game::Instance()->getRenderer(), 0, 480, 640, 480);
+	//SDL_RenderDrawLine(Game::Instance()->getRenderer(), 640, 0, 640, 480);
 
 		if (state == MENU)
 		{
@@ -275,7 +283,11 @@ void Game::quit()
 
 void Game::clean()
 {
-	//WriteHiScores();
+	delete[] fNoiseSeed2D;
+	delete[] fPerlinNoise2D;
+	delete[] fNoiseSeed1D;
+	delete[] fPerlinNoise1D;
+
 	std::cout << "cleaning game\n";
 	InputHandler::Instance()->clean();
 	AssetsManager::Instance()->clearFonts();
@@ -289,9 +301,6 @@ void Game::clean()
 void Game::handleEvents()
 {
 	InputHandler::Instance()->update();
-	static int delay = 500;
-	static int keyDelay = 100;
-	if (keyDelay > 0) keyDelay--;
 
 	//HandleKeys
 	if (state == MENU)
@@ -300,12 +309,12 @@ void Game::handleEvents()
 
 	if (state == GAME)
 	{
-		if (keyDelay == 0 && InputHandler::Instance()->isKeyDown(SDL_SCANCODE_SPACE)) nOctaveCount++;
-		if (keyDelay == 0 && InputHandler::Instance()->isKeyDown(SDL_SCANCODE_1)) nMode = 1;
-		if (keyDelay == 0 && InputHandler::Instance()->isKeyDown(SDL_SCANCODE_2)) nMode = 2;
-		if (keyDelay == 0 && InputHandler::Instance()->isKeyDown(SDL_SCANCODE_3)) nMode = 3;
-		if (keyDelay == 0 && InputHandler::Instance()->isKeyDown(SDL_SCANCODE_Q)) fScalingBias += 0.2f;
-		if (keyDelay == 0 && InputHandler::Instance()->isKeyDown(SDL_SCANCODE_A)) fScalingBias -= 0.2f;
+		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_SPACE)) nOctaveCount++;
+		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_1)) nMode = 1;
+		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_2)) nMode = 2;
+		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_3)) nMode = 3;
+		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_Q)) fScalingBias += 0.2f;
+		if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_A)) fScalingBias -= 0.2f;
 
 		if (fScalingBias < 0.2f) fScalingBias = 0.2f;
 		if (nOctaveCount == 9) nOctaveCount = 1;
@@ -315,14 +324,14 @@ void Game::handleEvents()
 		{
 			bool calculate = false;
 			//noise between 0 and +1
-			if (keyDelay == 0 && InputHandler::Instance()->isKeyDown(SDL_SCANCODE_Z))
+			if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_Z))
 			{
 				for (int i = 0; i < nOutputSize; i++) fNoiseSeed1D[i] = (float)rand() / (float)RAND_MAX;
 				calculate = true;
 			}
 
 			//noise between -1 and +1
-			if (keyDelay == 0 && InputHandler::Instance()->isKeyDown(SDL_SCANCODE_X))
+			if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_X))
 			{
 				for (int i = 0; i < nOutputSize; i++) fNoiseSeed1D[i] = 2.0f * ((float)rand() / (float)RAND_MAX) - 1.0f;
 				calculate = true;
@@ -335,7 +344,7 @@ void Game::handleEvents()
 		if (nMode == 2)
 		{
 			//noise between 0 and +1
-			if (keyDelay == 0 && InputHandler::Instance()->isKeyDown(SDL_SCANCODE_Z))
+			if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_Z))
 			{
 				for (int i = 0; i < nOutputWidth * nOutputHeight; i++) fNoiseSeed2D[i] = (float)rand() / (float)RAND_MAX;
 				PerlinNoise2D(nOutputWidth, nOutputHeight, fNoiseSeed2D, nOctaveCount, fScalingBias, fPerlinNoise2D);
@@ -346,20 +355,17 @@ void Game::handleEvents()
 		if (nMode == 3)
 		{
 			//noise between 0 and +1
-			if (keyDelay == 0 && InputHandler::Instance()->isKeyDown(SDL_SCANCODE_Z))
+			if (InputHandler::Instance()->isKeyDown(SDL_SCANCODE_Z))
 			{
 				for (int i = 0; i < nOutputWidth * nOutputHeight; i++) fNoiseSeed2D[i] = (float)rand() / (float)RAND_MAX;
 				PerlinNoise2D(nOutputWidth, nOutputHeight, fNoiseSeed2D, nOctaveCount, fScalingBias, fPerlinNoise2D);
 			}
 		}
-
-		if (keyDelay == 0) keyDelay = delay;
 	}
 
 	if (state == END_GAME)
 	{
 	}
-
 }
 
 bool Game::isCollide(Entity *a, Entity *b)
@@ -381,7 +387,7 @@ bool Game::isCollideRect(Entity *a, Entity * b) {
 
 void Game::update()
 {
-	if (state == GAME)
+	/*if (state == GAME)
 	{
 		for (auto i = entities.begin(); i != entities.end(); i++)
 		{
@@ -389,7 +395,7 @@ void Game::update()
 
 			e->update();
 		}
-	}
+	}*/
 
 }
 
