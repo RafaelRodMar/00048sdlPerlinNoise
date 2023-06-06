@@ -89,36 +89,47 @@ void Game::PerlinNoise1D(int nCount, float * fSeed, int nOctaves, float fBias, f
 	}
 }
 
+//nWidth * nHeight : number of elements in the output array "fOutput".
+//fSeed : the initial values (random white noise).
+//nOctaves : number of layers of noise to generate. Higher produces more detailed and complex noise.
+//fBias : controls the amplitude decrease of each octave. Higher produces more contrasted noise.
+//fOutput : the generated noise values.
 void Game::PerlinNoise2D(int nWidth, int nHeight, float * fSeed, int nOctaves, float fBias, float * fOutput)
 {
 	for (int x = 0; x < nWidth; x++)
 		for (int y = 0; y < nHeight; y++)
 		{
-			float fNoise = 0.0f;
-			float fScaleAcc = 0.0f;
-			float fScale = 1.0f;
+			float fNoise = 0.0f;     //noise value.
+			float fScaleAcc = 0.0f;  //accumulated scale factor.
+			float fScale = 1.0f;     //current scale factor.
 
 			for (int o = 0; o < nOctaves; o++)
 			{
-				int nPitch = nWidth >> o;
+				//the pitch is the distance between two sample points.
+				int nPitch = nWidth >> o;  //256, 128, 64...
+				//samples represent the positions of the samples used to interpolate
+				//the noise value for the current element. It gets two points.
 				int nSampleX1 = (x / nPitch) * nPitch;
 				int nSampleY1 = (y / nPitch) * nPitch;
 
 				int nSampleX2 = (nSampleX1 + nPitch) % nWidth;
 				int nSampleY2 = (nSampleY1 + nPitch) % nWidth;
 
+				//blend is the interpolation factor. 
 				float fBlendX = (float)(x - nSampleX1) / (float)nPitch;
 				float fBlendY = (float)(y - nSampleY1) / (float)nPitch;
 
+				//bilinear interpolation between the two values
 				float fSampleT = (1.0f - fBlendX) * fSeed[nSampleY1 * nWidth + nSampleX1] + fBlendX * fSeed[nSampleY1 * nWidth + nSampleX2];
 				float fSampleB = (1.0f - fBlendX) * fSeed[nSampleY2 * nWidth + nSampleX1] + fBlendX * fSeed[nSampleY2 * nWidth + nSampleX2];
 
+				//accumulate the scale.
 				fScaleAcc += fScale;
 				fNoise += (fBlendY * (fSampleB - fSampleT) + fSampleT) * fScale;
 				fScale = fScale / fBias;
 			}
 
-			// Scale to seed range
+			// Scale to seed range (beween 0 and 1)
 			fOutput[y * nWidth + x] = fNoise / fScaleAcc;
 		}
 }
