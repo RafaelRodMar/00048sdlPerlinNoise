@@ -39,30 +39,52 @@ public:
 //la clase juego:
 Game* Game::s_pInstance = 0;
 
+//nCount : number of elements in the output array "fOutput".
+//fSeed : the initial values (random white noise).
+//nOctaves : number of layers of noise to generate. Higher produces more detailed and complex noise.
+//fBias : controls the amplitude decrease of each octave. Higher produces more contrasted noise.
+//fOutput : the generated noise values.
 void Game::PerlinNoise1D(int nCount, float * fSeed, int nOctaves, float fBias, float * fOutput)
 {
 	for (int x = 0; x < nCount; x++)
 	{
-		float fNoise = 0.0f;
-		float fScaleAcc = 0.0f;
-		float fScale = 1.0f;
+		float fNoise = 0.0f;    //noise value.
+		float fScaleAcc = 0.0f; //scaling factor.
+		float fScale = 1.0f;    //current scale factor.
 
+		//iterate through each octave.
 		for (int o = 0; o < nOctaves; o++)
 		{
-			int nPitch = nCount >> o;
+			//the pitch is the distance between two sample points.
+			int nPitch = nCount >> o;  //each octave has smaller pitch, producing finer details.
+			//nSample1 and nSample2 represent the positions of the samples used to interpolate
+			//the noise value for the current element.
 			int nSample1 = (x / nPitch) * nPitch;
 			int nSample2 = (nSample1 + nPitch) % nCount;
 
+			//calculate the interpolation factor between nSample1 and nSample2.
+			//It's a value between 0.0 and 1.0, and indicates how close x is to nSample2
+			//relative to nSample1.
 			float fBlend = (float)(x - nSample1) / (float)nPitch;
 
+			//linear interpolation between fSeed[nSample1] and fSeed[nSample2] using fBlend.
+			//This is the interpolated noise value for the current element and octave.
 			float fSample = (1.0f - fBlend) * fSeed[nSample1] + fBlend * fSeed[nSample2];
 
+			//fScaleAcc is accumulated by adding fScale at each octave. It keep track of
+			//total scaling factor applied to the noise.
 			fScaleAcc += fScale;
+			//fNoise accumulates the final noise value by multiplying the interpolated sample
+			//with the current scale.
 			fNoise += fSample * fScale;
+			//fScale is updated by dividing it by fBias at each octave. This reduces the amplitude
+			//of each subsequent octave, allowing the smaller-scale details to have less impact
+			//on the final noise.
 			fScale = fScale / fBias;
 		}
 
 		// Scale to seed range
+		// Ensures that the noise values are within a reasonable range (between 0 and 1).
 		fOutput[x] = fNoise / fScaleAcc;
 	}
 }
@@ -193,12 +215,10 @@ bool Game::init(const char* title, int xpos, int ypos, int width,
 
 	//1D
 	nOutputSize = Game::Instance()->getGameWidth();
-	fNoiseSeed1D = new float[nOutputSize];
-	fPerlinNoise1D = new float[nOutputSize];
+	fNoiseSeed1D = new float[nOutputSize];    //random values between 0 and 1, it creates white noise.
+	fPerlinNoise1D = new float[nOutputSize];  //the data from fNoiseSeed1D after the perlin noise algorithm.
 	//init with random values
 	for (int i = 0; i < nOutputSize; i++) fNoiseSeed1D[i] = (float)rand() / (float)RAND_MAX; //numbers between 0 and 1
-	/*auto len = sizeof(*fNoiseSeed1D) * nOutputSize / sizeof(fNoiseSeed1D[0]);
-	std::cout << "len : " << len << std::endl;*/
 
 	//2D
 	fNoiseSeed2D = new float[nOutputWidth * nOutputHeight];
