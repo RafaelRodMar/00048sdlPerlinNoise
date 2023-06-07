@@ -221,11 +221,11 @@ bool Game::init(const char* title, int xpos, int ypos, int width,
 	mapa->fillBoardWithPoints();*/
 
 	//initialize perlin noise variables
-	nOutputWidth = Game::Instance()->getGameWidth();
-	nOutputHeight = Game::Instance()->getGameHeight();
+	nOutputWidth = 256;
+	nOutputHeight = 256;
 
 	//1D
-	nOutputSize = Game::Instance()->getGameWidth();
+	nOutputSize = 256;
 	fNoiseSeed1D = new float[nOutputSize];    //random values between 0 and 1, it creates white noise.
 	fPerlinNoise1D = new float[nOutputSize];  //the data from fNoiseSeed1D after the perlin noise algorithm.
 	//init with random values
@@ -291,7 +291,50 @@ void Game::render()
 
 			if (nMode == 2)
 			{
+				for (int x = 0; x < nOutputWidth; x++)
+				{
+					for (int y = 0; y < nOutputHeight; y++)
+					{
+						SDL_Color col;
+						int pixel_bw = (int)(fPerlinNoise2D[y * nOutputWidth + x] * 12.0f);
+						switch (pixel_bw)
+						{
+						case 0: col = { 0,0,0,255 }; break;
 
+						case 1: col = { 105,105,105,255 }; break;
+						case 2: col = { 169,169,169,255 }; break;
+						case 3: col = { 128,128,128,255 }; break;
+						case 4: col = { 211,211,211,255 }; break;
+
+						case 5: col = { 192,192,192,255 }; break;
+						case 6: col = { 220,220,220,255 }; break;
+						case 7: col = { 245,245,220,255 }; break;
+						case 8: col = { 245,245,245,255 }; break;
+
+						case 9:  col = { 255,255,240,255 }; break;
+						case 10: col = { 255,250,240,255 }; break;
+						case 11: col = { 255,250,250,255 }; break;
+						case 12: col = { 255,255,255,255 }; break;
+
+							/*Black: 0, 0, 0
+							Dim Gray : 105, 105, 105
+							Dark Gray : 169, 169, 169
+							Gray : 128, 128, 128
+							Light Gray : 211, 211, 211
+							Silver : 192, 192, 192
+							Gainsboro : 220, 220, 220
+							Beige : 245, 245, 220
+							White Smoke : 245, 245, 245
+							Ivory : 255, 255, 240
+							Floral White : 255, 250, 240
+							Snow : 255, 250, 250
+							White : 255, 255, 255*/
+						}
+
+						SDL_SetRenderDrawColor(m_pRenderer, col.r, col.g, col.b, 255);
+						SDL_RenderDrawPoint(m_pRenderer, x, y);
+					}
+				}
 			}
 
 			if (nMode == 3)
@@ -363,7 +406,11 @@ void Game::handleEvents()
 		if (fScalingBias < 0.2f) fScalingBias = 0.2f;
 		if (nOctaveCount == 9) nOctaveCount = 1;
 
-		if(recalculate) PerlinNoise1D(nOutputSize, fNoiseSeed1D, nOctaveCount, fScalingBias, fPerlinNoise1D);
+		if (recalculate)
+		{
+			PerlinNoise1D(nOutputSize, fNoiseSeed1D, nOctaveCount, fScalingBias, fPerlinNoise1D);
+			PerlinNoise2D(nOutputWidth, nOutputHeight, fNoiseSeed2D, nOctaveCount, fScalingBias, fPerlinNoise2D);
+		}
 
 		//1D
 		if (nMode == 1)
