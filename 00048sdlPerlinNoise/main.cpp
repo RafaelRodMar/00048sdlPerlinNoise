@@ -339,7 +339,41 @@ void Game::render()
 
 			if (nMode == 3)
 			{
+				for (int x = 0; x < nOutputWidth; x++)
+				{
+					for (int y = 0; y < nOutputHeight; y++)
+					{
+						SDL_Color col;
+						int pixel_bw = (int)(fPerlinNoise2D[y * nOutputWidth + x] * 12.0f);
+						switch (pixel_bw)
+						{
+						case 0: col = { 0,0,255,255 }; break; //dark blue
 
+						case 1: col = { 0,0,136,255 }; break; //from dark blue to blue
+						case 2: col = { 0,0,144,255 }; break;
+						case 3: col = { 0,0,152,255 }; break;
+						case 4: col = { 0,0,160,255 }; break;
+
+						case 5: col = { 0,64,128,255 }; break; //from blue to green
+						case 6: col = { 0,128,96,255 }; break;
+						case 7: col = { 0,192,64,255 }; break;
+						case 8: col = { 0,255,32,255 }; break;
+
+						case 9:  col = { 0,128,0,255 }; break; //from green to dark grey
+						case 10: col = { 64,96,64,255 }; break;
+						case 11: col = { 128,64,128,255 }; break;
+						case 12: col = { 64,64,64,255 }; break;
+
+						case 13:  col = { 64,64,64,255 }; break; //from dark grey to white
+						case 14: col = { 128,128,128,255 }; break;
+						case 15: col = { 192,192,192,255 }; break;
+						case 16: col = { 255,255,255,255 }; break;
+						}
+
+						SDL_SetRenderDrawColor(m_pRenderer, col.r, col.g, col.b, 255);
+						SDL_RenderDrawPoint(m_pRenderer, x, y);
+					}
+				}
 			}
 		}
 
